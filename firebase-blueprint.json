@@ -1,0 +1,191 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account, academic/personal focus preferences, notification settings, and gamification state.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "format": "email", "maxLength": 200 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "role": { "type": "string", "enum": ["student", "professor"] },
+        "institution": { "type": "string", "maxLength": 150 },
+        "academicHoursStart": { "type": "string", "maxLength": 10 },
+        "academicHoursEnd": { "type": "string", "maxLength": 10 },
+        "focusSilenceOutsideHours": { "type": "boolean" },
+        "theme": { "type": "string", "enum": ["light", "dark"] },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "streakDays": { "type": "number" },
+        "badges": { "type": "array" },
+        "claimedRewards": { "type": "array" },
+        "notifyMessages": { "type": "boolean" },
+        "notifyDeadlines": { "type": "boolean" },
+        "defaultReminderMinutes": { "type": "number" },
+        "professorNotifyNewRequests": { "type": "boolean" },
+        "professorNotifyChannel": { "type": "string", "enum": ["push_and_banner", "banner_only", "muted"] },
+        "professorNotifyOnlyInAcademicHours": { "type": "boolean" },
+        "professorAutoAcceptMode": { "type": "string", "enum": ["manual", "subjects", "all"] },
+        "professorAutoAcceptSubjects": { "type": "array" },
+        "professorAutoAcceptWelcome": { "type": "string", "maxLength": 240 },
+        "professorAutoJoinAsMember": { "type": "boolean" },
+        "lastBackupAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role", "xp", "level", "theme", "createdAt", "updatedAt"]
+    },
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Non-PII public academic engagement summary for the class ranking leaderboard.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["student", "professor"] },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "streakDays": { "type": "number" },
+        "badgeCount": { "type": "number" },
+        "isPublic": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role", "xp", "level", "isPublic", "updatedAt"]
+    },
+    "GradeEntry": {
+      "title": "GradeEntry",
+      "description": "Academic grade record for a specific exam, assignment, or project.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "professorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "assessmentTitle": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "category": { "type": "string", "enum": ["prova", "trabalho", "atividade"] },
+        "score": { "type": "number" },
+        "maxScore": { "type": "number" },
+        "weight": { "type": "number" },
+        "date": { "type": "string", "maxLength": 32 },
+        "feedback": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["graded", "pending"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "subject", "professorName", "assessmentTitle", "category", "score", "maxScore", "weight", "date", "status", "createdAt", "updatedAt"]
+    },
+    "DeadlineItem": {
+      "title": "DeadlineItem",
+      "description": "Academic deadline, exam, or assignment with reminder preferences and Google Calendar sync metadata.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "type": { "type": "string", "enum": ["prova", "trabalho", "atividade", "reuniao"] },
+        "dueDate": { "type": "string", "minLength": 8, "maxLength": 32 },
+        "dueTime": { "type": "string", "maxLength": 16 },
+        "status": { "type": "string", "enum": ["pending", "submitted", "completed"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "reminderMinutes": { "type": "number" },
+        "reminderEnabled": { "type": "boolean" },
+        "googleCalendarEventId": { "type": "string", "maxLength": 200 },
+        "notes": { "type": "string", "maxLength": 800 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "subject", "type", "dueDate", "status", "priority", "reminderMinutes", "reminderEnabled", "createdAt", "updatedAt"]
+    },
+    "ChatRoom": {
+      "title": "ChatRoom",
+      "description": "Organized subject-level conversation channel between student and professor with professor approval and direct initiation controls.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 140 },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "professorName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "professorAvatar": { "type": "string", "maxLength": 300 },
+        "visibility": { "type": "string", "enum": ["private", "shared"] },
+        "roomCode": { "type": "string", "minLength": 4, "maxLength": 24, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "chatStatus": { "type": "string", "enum": ["active", "pending_professor", "declined", "closed"] },
+        "initiatedByRole": { "type": "string", "enum": ["student", "professor"] },
+        "initiatedByUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "openingMessage": { "type": "string", "maxLength": 1000 },
+        "moderationNote": { "type": "string", "maxLength": 300 },
+        "lastMessagePreview": { "type": "string", "maxLength": 240 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "title", "subject", "professorName", "visibility", "roomCode", "createdAt", "updatedAt"]
+    },
+    "RoomMember": {
+      "title": "RoomMember",
+      "description": "Membership record controlling access to a chat room.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["student", "professor"] },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "role", "joinedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Real-time message inside an academic chat room with support for text, images, audio, and file attachments.",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomOwnerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "roomVisibility": { "type": "string", "enum": ["private", "shared"] },
+        "senderUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "senderName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "senderRole": { "type": "string", "enum": ["student", "professor"] },
+        "text": { "type": "string", "maxLength": 4000 },
+        "topic": { "type": "string", "enum": ["Dúvida", "Material", "Prazo", "Geral"] },
+        "attachmentType": { "type": "string", "enum": ["none", "image", "audio", "file"] },
+        "attachmentName": { "type": "string", "maxLength": 180 },
+        "attachmentMime": { "type": "string", "maxLength": 120 },
+        "attachmentData": { "type": "string", "maxLength": 450000 },
+        "attachmentSize": { "type": "number" },
+        "pinned": { "type": "boolean" },
+        "resolved": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["roomId", "roomOwnerId", "roomVisibility", "senderUid", "senderName", "senderRole", "text", "topic", "attachmentType", "pinned", "resolved", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user settings, PII, notification preferences, and gamification state."
+    },
+    "/public_profiles/{userId}": {
+      "schema": { "$ref": "#/entities/PublicProfile" },
+      "description": "Public non-PII leaderboard profiles for gamification rankings."
+    },
+    "/users/{userId}/grades/{gradeId}": {
+      "schema": { "$ref": "#/entities/GradeEntry" },
+      "description": "Student assessment grades owned by the user."
+    },
+    "/users/{userId}/deadlines/{deadlineId}": {
+      "schema": { "$ref": "#/entities/DeadlineItem" },
+      "description": "Student academic deadlines and Google Calendar sync status."
+    },
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/ChatRoom" },
+      "description": "Organized academic chat rooms between students and professors."
+    },
+    "/rooms/{roomId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/RoomMember" },
+      "description": "Authorized room participants."
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Real-time messages and multimedia attachments within a room."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "AulaViva",
+  "description": "Plataforma acadêmica multiplataforma para bate-papo direto entre aluno e professor, monitoramento de notas e prazos, gamificação, sincronização com Google Calendar, modo offline e backup em nuvem.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

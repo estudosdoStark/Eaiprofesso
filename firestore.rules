@@ -1,0 +1,407 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Primitives
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidStringList(arr, maxLen) {
+      return arr is list && arr.size() <= maxLen && (arr.size() == 0 || (arr[0] is string && arr[0].size() <= 120));
+    }
+
+    // Entity Validators
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'xp', 'level', 'theme', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'email', 'photoURL', 'role', 'institution',
+          'academicHoursStart', 'academicHoursEnd', 'focusSilenceOutsideHours',
+          'theme', 'xp', 'level', 'streakDays', 'badges', 'claimedRewards',
+          'notifyMessages', 'notifyDeadlines', 'defaultReminderMinutes',
+          'professorNotifyNewRequests', 'professorNotifyChannel', 'professorNotifyOnlyInAcademicHours',
+          'professorAutoAcceptMode', 'professorAutoAcceptSubjects', 'professorAutoAcceptWelcome',
+          'professorAutoJoinAsMember', 'lastBackupAt', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid == userId && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && (!('email' in data) || (data.email is string && data.email.size() <= 200))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && data.role in ['student', 'professor']
+        && (!('institution' in data) || (data.institution is string && data.institution.size() <= 150))
+        && (!('academicHoursStart' in data) || (data.academicHoursStart is string && data.academicHoursStart.size() <= 10))
+        && (!('academicHoursEnd' in data) || (data.academicHoursEnd is string && data.academicHoursEnd.size() <= 10))
+        && (!('focusSilenceOutsideHours' in data) || data.focusSilenceOutsideHours is bool)
+        && data.theme in ['light', 'dark']
+        && data.xp is number && data.xp >= 0 && data.xp <= 10000000
+        && data.level is number && data.level >= 1 && data.level <= 500
+        && (!('streakDays' in data) || (data.streakDays is number && data.streakDays >= 0 && data.streakDays <= 10000))
+        && (!('badges' in data) || isValidStringList(data.badges, 20))
+        && (!('claimedRewards' in data) || isValidStringList(data.claimedRewards, 20))
+        && (!('notifyMessages' in data) || data.notifyMessages is bool)
+        && (!('notifyDeadlines' in data) || data.notifyDeadlines is bool)
+        && (!('defaultReminderMinutes' in data) || (data.defaultReminderMinutes is number && data.defaultReminderMinutes >= 0 && data.defaultReminderMinutes <= 43200))
+        && (!('professorNotifyNewRequests' in data) || data.professorNotifyNewRequests is bool)
+        && (!('professorNotifyChannel' in data) || data.professorNotifyChannel in ['push_and_banner', 'banner_only', 'muted'])
+        && (!('professorNotifyOnlyInAcademicHours' in data) || data.professorNotifyOnlyInAcademicHours is bool)
+        && (!('professorAutoAcceptMode' in data) || data.professorAutoAcceptMode in ['manual', 'subjects', 'all'])
+        && (!('professorAutoAcceptSubjects' in data) || isValidStringList(data.professorAutoAcceptSubjects, 15))
+        && (!('professorAutoAcceptWelcome' in data) || (data.professorAutoAcceptWelcome is string && data.professorAutoAcceptWelcome.size() <= 240))
+        && (!('professorAutoJoinAsMember' in data) || data.professorAutoJoinAsMember is bool)
+        && (!('lastBackupAt' in data) || (data.lastBackupAt is string && data.lastBackupAt.size() <= 64))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPublicProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'xp', 'level', 'isPublic', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'role', 'xp', 'level', 'streakDays', 'badgeCount', 'isPublic', 'updatedAt'])
+        && data.uid is string && data.uid == userId && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.role in ['student', 'professor']
+        && data.xp is number && data.xp >= 0 && data.xp <= 10000000
+        && data.level is number && data.level >= 1 && data.level <= 500
+        && (!('streakDays' in data) || (data.streakDays is number && data.streakDays >= 0 && data.streakDays <= 10000))
+        && (!('badgeCount' in data) || (data.badgeCount is number && data.badgeCount >= 0 && data.badgeCount <= 100))
+        && data.isPublic is bool
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGradeEntry(data, userId) {
+      return data.keys().hasAll(['userId', 'subject', 'professorName', 'assessmentTitle', 'category', 'score', 'maxScore', 'weight', 'date', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'subject', 'professorName', 'assessmentTitle', 'category', 'score', 'maxScore', 'weight', 'date', 'feedback', 'status', 'createdAt', 'updatedAt'])
+        && data.userId is string && data.userId == userId && isValidId(data.userId)
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.professorName is string && data.professorName.size() >= 1 && data.professorName.size() <= 120
+        && data.assessmentTitle is string && data.assessmentTitle.size() >= 1 && data.assessmentTitle.size() <= 160
+        && data.category in ['prova', 'trabalho', 'atividade']
+        && data.score is number && data.score >= 0 && data.score <= 1000
+        && data.maxScore is number && data.maxScore > 0 && data.maxScore <= 1000
+        && data.weight is number && data.weight > 0 && data.weight <= 100
+        && data.date is string && data.date.size() >= 1 && data.date.size() <= 32
+        && (!('feedback' in data) || (data.feedback is string && data.feedback.size() <= 500))
+        && data.status in ['graded', 'pending']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDeadlineItem(data, userId) {
+      return data.keys().hasAll(['userId', 'title', 'subject', 'type', 'dueDate', 'status', 'priority', 'reminderMinutes', 'reminderEnabled', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'userId', 'title', 'subject', 'type', 'dueDate', 'dueTime', 'status',
+          'priority', 'reminderMinutes', 'reminderEnabled', 'googleCalendarEventId',
+          'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.userId is string && data.userId == userId && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 180
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.type in ['prova', 'trabalho', 'atividade', 'reuniao']
+        && data.dueDate is string && data.dueDate.size() >= 8 && data.dueDate.size() <= 32
+        && (!('dueTime' in data) || (data.dueTime is string && data.dueTime.size() <= 16))
+        && data.status in ['pending', 'submitted', 'completed']
+        && data.priority in ['low', 'medium', 'high']
+        && data.reminderMinutes is number && data.reminderMinutes >= 0 && data.reminderMinutes <= 43200
+        && data.reminderEnabled is bool
+        && (!('googleCalendarEventId' in data) || (data.googleCalendarEventId is string && data.googleCalendarEventId.size() <= 200))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 800))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChatRoom(data) {
+      return data.keys().hasAll(['ownerId', 'title', 'subject', 'professorName', 'visibility', 'roomCode', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'ownerId', 'title', 'subject', 'professorName', 'professorAvatar', 'visibility',
+          'roomCode', 'chatStatus', 'initiatedByRole', 'initiatedByUid', 'studentName',
+          'openingMessage', 'moderationNote', 'lastMessagePreview', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && isValidId(data.ownerId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 140
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120
+        && data.professorName is string && data.professorName.size() >= 1 && data.professorName.size() <= 120
+        && (!('professorAvatar' in data) || (data.professorAvatar is string && data.professorAvatar.size() <= 300))
+        && data.visibility in ['private', 'shared']
+        && data.roomCode is string && data.roomCode.size() >= 4 && data.roomCode.size() <= 24 && data.roomCode.matches('^[a-zA-Z0-9_\\-]+$')
+        && (!('chatStatus' in data) || data.chatStatus in ['active', 'pending_professor', 'declined', 'closed'])
+        && (!('initiatedByRole' in data) || data.initiatedByRole in ['student', 'professor'])
+        && (!('initiatedByUid' in data) || (data.initiatedByUid is string && isValidId(data.initiatedByUid)))
+        && (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 120))
+        && (!('openingMessage' in data) || (data.openingMessage is string && data.openingMessage.size() <= 1000))
+        && (!('moderationNote' in data) || (data.moderationNote is string && data.moderationNote.size() <= 300))
+        && (!('lastMessagePreview' in data) || (data.lastMessagePreview is string && data.lastMessagePreview.size() <= 240))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRoomMember(data, memberId) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'joinedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'role', 'joinedAt'])
+        && data.uid is string && data.uid == memberId && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.role in ['student', 'professor']
+        && data.joinedAt is timestamp;
+    }
+
+    function isValidChatMessage(data, roomId) {
+      return data.keys().hasAll(['roomId', 'roomOwnerId', 'roomVisibility', 'senderUid', 'senderName', 'senderRole', 'text', 'topic', 'attachmentType', 'pinned', 'resolved', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'roomId', 'roomOwnerId', 'roomVisibility', 'senderUid', 'senderName', 'senderRole',
+          'text', 'topic', 'attachmentType', 'attachmentName', 'attachmentMime',
+          'attachmentData', 'attachmentSize', 'pinned', 'resolved', 'createdAt', 'updatedAt'
+        ])
+        && data.roomId is string && data.roomId == roomId && isValidId(data.roomId)
+        && data.roomOwnerId is string && isValidId(data.roomOwnerId)
+        && data.roomVisibility in ['private', 'shared']
+        && data.senderUid is string && isValidId(data.senderUid)
+        && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 120
+        && data.senderRole in ['student', 'professor']
+        && data.text is string && data.text.size() <= 4000
+        && data.topic in ['Dúvida', 'Material', 'Prazo', 'Geral']
+        && data.attachmentType in ['none', 'image', 'audio', 'file']
+        && (!('attachmentName' in data) || (data.attachmentName is string && data.attachmentName.size() <= 180))
+        && (!('attachmentMime' in data) || (data.attachmentMime is string && data.attachmentMime.size() <= 120))
+        && (!('attachmentData' in data) || (data.attachmentData is string && data.attachmentData.size() <= 450000))
+        && (!('attachmentSize' in data) || (data.attachmentSize is number && data.attachmentSize >= 0 && data.attachmentSize <= 10485760))
+        && data.pinned is bool
+        && data.resolved is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // 1. Private User Profile (PII Isolated)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'role', 'institution', 'academicHoursStart', 'academicHoursEnd',
+            'focusSilenceOutsideHours', 'theme', 'notifyMessages', 'notifyDeadlines',
+            'defaultReminderMinutes', 'professorNotifyNewRequests', 'professorNotifyChannel',
+            'professorNotifyOnlyInAcademicHours', 'professorAutoAcceptMode',
+            'professorAutoAcceptSubjects', 'professorAutoAcceptWelcome',
+            'professorAutoJoinAsMember', 'updatedAt'
+          ])
+          || incoming().diff(existing()).affectedKeys().hasOnly([
+            'professorNotifyNewRequests', 'professorNotifyChannel',
+            'professorNotifyOnlyInAcademicHours', 'professorAutoAcceptMode',
+            'professorAutoAcceptSubjects', 'professorAutoAcceptWelcome',
+            'professorAutoJoinAsMember', 'updatedAt'
+          ])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['xp', 'level', 'streakDays', 'badges', 'claimedRewards', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['lastBackupAt', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['photoURL', 'updatedAt'])
+        );
+      allow delete: if false;
+
+      // 1a. Private Grades
+      match /grades/{gradeId} {
+        allow get: if isValidId(userId) && isValidId(gradeId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.userId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(gradeId)
+          && isOwner(userId)
+          && isValidGradeEntry(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(gradeId)
+          && isOwner(userId)
+          && isValidGradeEntry(incoming(), userId)
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['subject', 'professorName', 'assessmentTitle', 'category', 'score', 'maxScore', 'weight', 'date', 'feedback', 'status', 'updatedAt']);
+        allow delete: if isValidId(userId) && isValidId(gradeId) && isOwner(userId);
+      }
+
+      // 1b. Private Deadlines
+      match /deadlines/{deadlineId} {
+        allow get: if isValidId(userId) && isValidId(deadlineId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.userId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(deadlineId)
+          && isOwner(userId)
+          && isValidDeadlineItem(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(deadlineId)
+          && isOwner(userId)
+          && isValidDeadlineItem(incoming(), userId)
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['googleCalendarEventId', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subject', 'type', 'dueDate', 'dueTime', 'priority', 'reminderMinutes', 'reminderEnabled', 'notes', 'status', 'updatedAt'])
+          );
+        allow delete: if isValidId(userId) && isValidId(deadlineId) && isOwner(userId);
+      }
+    }
+
+    // 2. Public Non-PII Leaderboard Profiles
+    match /public_profiles/{userId} {
+      allow get: if isValidId(userId) && isVerifiedUser() && resource.data.isPublic == true;
+      allow list: if isVerifiedUser() && resource.data.isPublic == true;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidPublicProfile(incoming(), userId)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidPublicProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role', 'xp', 'level', 'streakDays', 'badgeCount', 'isPublic', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // 3. Academic Chat Rooms & Subcollections
+    match /rooms/{roomId} {
+      allow get: if isValidId(roomId) && isVerifiedUser() && (
+        existing().ownerId == request.auth.uid
+        || existing().visibility == 'shared'
+        || exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid))
+      );
+      allow list: if isVerifiedUser() && (
+        resource.data.ownerId == request.auth.uid
+        || resource.data.visibility == 'shared'
+      );
+      allow create: if isValidId(roomId)
+        && isVerifiedUser()
+        && isValidChatRoom(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          !('chatStatus' in incoming())
+          || incoming().chatStatus == 'pending_professor'
+          || (
+            incoming().chatStatus == 'active'
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'professor'
+          )
+        );
+      allow update: if isValidId(roomId)
+        && isVerifiedUser()
+        && isValidChatRoom(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (existing().ownerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subject', 'professorName', 'professorAvatar', 'visibility', 'lastMessagePreview', 'updatedAt']))
+          || ((existing().visibility == 'shared' || exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid))) && incoming().diff(existing()).affectedKeys().hasOnly(['lastMessagePreview', 'updatedAt']))
+          || (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'professor'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['chatStatus', 'moderationNote', 'lastMessagePreview', 'updatedAt'])
+          )
+        );
+      allow delete: if isValidId(roomId) && isVerifiedUser() && existing().ownerId == request.auth.uid;
+
+      // 3a. Room Members (Master Gate)
+      match /members/{memberId} {
+        allow get: if isValidId(roomId) && isValidId(memberId) && isVerifiedUser() && (
+          memberId == request.auth.uid
+          || get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == request.auth.uid
+        );
+        allow list: if isValidId(roomId) && isVerifiedUser() && resource.data.uid == request.auth.uid;
+        allow create: if isValidId(roomId) && isValidId(memberId)
+          && isVerifiedUser()
+          && memberId == request.auth.uid
+          && isValidRoomMember(incoming(), memberId)
+          && incoming().joinedAt == request.time
+          && exists(/databases/$(database)/documents/rooms/$(roomId))
+          && (
+            get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == request.auth.uid
+            || get(/databases/$(database)/documents/rooms/$(roomId)).data.visibility == 'shared'
+          );
+        allow update: if false;
+        allow delete: if isValidId(roomId) && isValidId(memberId) && isVerifiedUser() && memberId == request.auth.uid;
+      }
+
+      // 3b. Room Messages
+      match /messages/{messageId} {
+        allow get: if isValidId(roomId) && isValidId(messageId) && isVerifiedUser() && (
+          exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid))
+          || get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == request.auth.uid
+        );
+        allow list: if isValidId(roomId) && isVerifiedUser() && (
+          resource.data.senderUid == request.auth.uid
+          || resource.data.roomOwnerId == request.auth.uid
+          || resource.data.roomVisibility == 'shared'
+        );
+        allow create: if isValidId(roomId) && isValidId(messageId)
+          && isVerifiedUser()
+          && isValidChatMessage(incoming(), roomId)
+          && incoming().senderUid == request.auth.uid
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/rooms/$(roomId))
+          && incoming().roomOwnerId == get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId
+          && incoming().roomVisibility == get(/databases/$(database)/documents/rooms/$(roomId)).data.visibility
+          && (
+            !('chatStatus' in get(/databases/$(database)/documents/rooms/$(roomId)).data)
+            || get(/databases/$(database)/documents/rooms/$(roomId)).data.chatStatus == 'active'
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'professor'
+          )
+          && (
+            get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == request.auth.uid
+            || exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid))
+          );
+        allow update: if isValidId(roomId) && isValidId(messageId)
+          && isVerifiedUser()
+          && isValidChatMessage(incoming(), roomId)
+          && incoming().roomId == existing().roomId
+          && incoming().roomOwnerId == existing().roomOwnerId
+          && incoming().roomVisibility == existing().roomVisibility
+          && incoming().senderUid == existing().senderUid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            exists(/databases/$(database)/documents/rooms/$(roomId)/members/$(request.auth.uid))
+            || get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == request.auth.uid
+          )
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly(['pinned', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['resolved', 'updatedAt'])
+            || (existing().senderUid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'topic', 'updatedAt']))
+          );
+        allow delete: if isValidId(roomId) && isValidId(messageId) && isVerifiedUser() && (
+          existing().senderUid == request.auth.uid
+          || get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerId == request.auth.uid
+        );
+      }
+    }
+  }
+}
